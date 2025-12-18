@@ -14,6 +14,8 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
   </style>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -24,7 +26,6 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // 纯 React SVG 图标组件，不操作 DOM，避免白屏崩溃
     const Icon = ({ name, className = "w-6 h-6" }) => {
       const icons = {
         play: <path d="M5 3l14 9-14 9V3z" fill="currentColor" />,
@@ -53,7 +54,6 @@
       const [isShuffle, setIsShuffle] = useState(false);
       const [speed, setSpeed] = useState(SETTINGS.speed);
       const [voices, setVoices] = useState([]);
-      
       const [showOriginalGlobal, setShowOriginalGlobal] = useState(false);
       const [showTransGlobal, setShowTransGlobal] = useState(false);
       const [showOriginalLocal, setShowOriginalLocal] = useState(false);
@@ -116,11 +116,9 @@
          let rawOriginal = (card.original || "");
          let ttsText = rawOriginal.replace(/<rt\b[^>]*>[\s\S]*?<\/rt>/gi, ''); 
          ttsText = ttsText.replace(/<[^>]+>/g, '').trim(); 
-         
          if(!ttsText) return;
          const u = new SpeechSynthesisUtterance(ttsText);
          u.lang = SETTINGS.language; u.rate = speed; u.pitch = card.nativePitch || 1.25;
-         
          if(voices.length) {
             const langCode = SETTINGS.language.split('-')[0];
             const vList = voices.filter(v => v.lang.startsWith(langCode));
@@ -128,7 +126,6 @@
             const maleKeywords = /male|man|ichiro|kenji|takumi|daichi|daniel|david/i;
             u.voice = vList.find(v => v.name.match(u.pitch > 1.1 ? femaleKeywords : maleKeywords)) || vList.find(v => v.name.match(femaleKeywords)) || vList[0];
          }
-         
          u.onend = () => {
             if(isSingle) setTimeout(() => speak(), 300);
             else if(isLoop) handleNext(true);
@@ -159,61 +156,68 @@
               {currentIndex + 1} / {playbackQueue.length}
             </span>
             
-            {groups.length > 0 && (
-              <div className="relative w-[45%] flex justify-center">
-                <div className="relative w-full">
-                  <select 
-                    value={selectedGroupId} 
-                    onChange={(e) => setSelectedGroupId(e.target.value)}
-                    className="w-full bg-[#FFF9C4] border-4 border-white text-orange-600 font-black text-center text-sm py-1.5 pl-4 pr-8 rounded-xl cursor-pointer shadow-inner outline-none truncate"
-                  >
-                    <option value="ALL">全部卡片</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
-                  </select>
-                  <Icon name="layers" className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-orange-400 w-4 h-4" />
-                </div>
+            <div className="relative w-[50%]">
+              <select 
+                value={selectedGroupId} 
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                className="w-full appearance-none bg-[#FFF9C4] border-4 border-white text-orange-600 font-black text-center text-sm py-2 px-6 rounded-2xl cursor-pointer shadow-inner outline-none truncate"
+              >
+                <option value="ALL">全部卡片组</option>
+                {groups.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-orange-400">
+                <Icon name="layers" className="w-4 h-4" />
               </div>
-            )}
+            </div>
 
-            <button onClick={() => { const s = [1.0, 0.8, 0.6]; setSpeed(s[(s.indexOf(speed)+1)%s.length]); }} className="bg-white border-2 border-orange-100 text-orange-600 px-3 py-1 rounded-xl font-black text-xs shadow-sm">
+            <button onClick={() => { const s = [1.0, 0.8, 0.6]; setSpeed(s[(s.indexOf(speed)+1)%s.length]); }} className="bg-white border-2 border-orange-100 text-orange-600 px-3 py-1.5 rounded-xl font-black text-xs shadow-sm">
               {speed}x
             </button>
           </div>
 
+          {card.groupTitle && (
+            <div className="flex justify-center mb-4 animate-float">
+              <div className="bg-[#7FC241]/20 px-6 py-1.5 rounded-full border-2 border-[#7FC241]/30 flex items-center gap-2 shadow-inner">
+                <Icon name="book-open" className="w-4 h-4 text-[#7FC241]" />
+                <span className="text-xs font-black text-[#5D8F2E] tracking-wider uppercase">{card.groupTitle}</span>
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto space-y-4 pb-48 no-scrollbar">
-            <div className="piggy-card p-8 flex flex-col items-center justify-center bg-[#FFF9C4]">
+            <div className="piggy-card p-10 flex flex-col items-center justify-center bg-[#FFF9C4]">
               <button 
                 onClick={() => { if(isPlaying) { window.speechSynthesis.cancel(); setIsPlaying(false); } else { setIsPlaying(true); speak(); } }} 
-                className="w-24 h-24 rounded-full border-4 border-white shadow-toon bg-[#E53030] flex items-center justify-center transition-transform active:scale-95"
+                className={"w-28 h-28 rounded-full border-8 border-white shadow-toon bg-[#E53030] flex items-center justify-center transition-all active:scale-95 " + (isPlaying ? "scale-105" : "")}
               >
-                {isPlaying ? <Icon name="pause" className="text-white w-10 h-10" /> : <Icon name="play" className="text-white w-10 h-10 ml-1" />}
+                {isPlaying ? <Icon name="pause" className="text-white w-12 h-12" /> : <Icon name="play" className="text-white w-12 h-12 ml-2" />}
               </button>
             </div>
 
             <div 
               onClick={() => setShowOriginalLocal(!showOriginalLocal)} 
-              className={"piggy-card p-6 min-h-[120px] bg-[#DCEDC8] flex items-center justify-center cursor-pointer transition-all " + (!isOriginalVisible ? "border-dashed opacity-80" : "")}
+              className={"piggy-card p-8 min-h-[140px] bg-[#DCEDC8] flex items-center justify-center cursor-pointer transition-all " + (!isOriginalVisible ? "border-dashed opacity-80" : "border-solid")}
             >
               {isOriginalVisible ? (
-                <div className="text-xl font-black text-[#558B2F] text-center" dangerouslySetInnerHTML={{__html: card.original}}></div>
+                <div className="text-2xl font-black text-[#558B2F] text-center leading-relaxed" dangerouslySetInnerHTML={{__html: card.original}}></div>
               ) : (
                 <div className="flex flex-col items-center opacity-40 font-black text-[#558B2F]">
-                  <Icon name="eye" className="w-8 h-8" />
-                  <span className="text-xs mt-1">点击显示原文</span>
+                  <Icon name="eye" className="w-10 h-10 mb-2" />
+                  <span className="text-sm">点击显示原文</span>
                 </div>
               )}
             </div>
 
             <div 
               onClick={() => setShowTransLocal(!showTransLocal)} 
-              className={"piggy-card p-6 min-h-[100px] bg-[#FFCCBC] flex items-center justify-center cursor-pointer transition-all " + (!isTransVisible ? "border-dashed opacity-80" : "")}
+              className={"piggy-card p-8 min-h-[120px] bg-[#FFCCBC] flex items-center justify-center cursor-pointer transition-all " + (!isTransVisible ? "border-dashed opacity-80" : "border-solid")}
             >
               {isTransVisible ? (
-                <div className="text-lg font-black text-[#BF360C] text-center">{card.translation}</div>
+                <div className="text-xl font-black text-[#BF360C] text-center leading-relaxed">{card.translation}</div>
               ) : (
                 <div className="flex flex-col items-center opacity-40 font-black text-[#BF360C]">
-                  <Icon name="book-open" className="w-8 h-8" />
-                  <span className="text-xs mt-1">点击显示译文</span>
+                  <Icon name="book-open" className="w-10 h-10 mb-2" />
+                  <span className="text-sm">点击显示译文</span>
                 </div>
               )}
             </div>
@@ -221,15 +225,15 @@
 
           <div className="fixed bottom-6 left-4 right-4 z-50">
             <div className="flex justify-center gap-4 mb-4">
-               <button onClick={() => setShowOriginalGlobal(!showOriginalGlobal)} className={"px-6 py-2 rounded-xl text-xs font-black border-4 shadow-toon " + (showOriginalGlobal ? 'bg-[#7FC241] text-white border-white' : 'bg-white text-slate-400 border-white')}>原文</button>
-               <button onClick={() => setShowTransGlobal(!showTransGlobal)} className={"px-6 py-2 rounded-xl text-xs font-black border-4 shadow-toon " + (showTransGlobal ? 'bg-[#FFAEC8] text-white border-white' : 'bg-white text-slate-400 border-white')}>译文</button>
+               <button onClick={() => setShowOriginalGlobal(!showOriginalGlobal)} className={"px-8 py-2.5 rounded-2xl text-xs font-black border-4 shadow-toon transition-all " + (showOriginalGlobal ? 'bg-[#7FC241] text-white border-white' : 'bg-white text-slate-400 border-white')}>原文</button>
+               <button onClick={() => setShowTransGlobal(!showTransGlobal)} className={"px-8 py-2.5 rounded-2xl text-xs font-black border-4 shadow-toon transition-all " + (showTransGlobal ? 'bg-[#FFAEC8] text-white border-white' : 'bg-white text-slate-400 border-white')}>译文</button>
             </div>
-            <div className="max-w-md mx-auto flex justify-between items-center gap-2 bg-white/90 p-3 rounded-[2rem] border-4 border-white shadow-2xl backdrop-blur-sm">
-                <button onClick={handlePrev} className="w-12 h-12 rounded-full bg-[#A2D2FF] text-white flex items-center justify-center border-2 border-white shadow-sm"><Icon name="skip-back" className="w-5 h-5"/></button>
-                <button onClick={() => setIsShuffle(!isShuffle)} className={"w-12 h-12 rounded-2xl border-4 flex items-center justify-center " + (isShuffle ? 'bg-[#F9E05E] border-white text-[#D97706]' : 'bg-slate-100 border-white text-slate-400')}><Icon name="shuffle" className="w-5 h-5"/></button>
-                <button onClick={() => setIsSingle(!isSingle)} className={"w-12 h-12 rounded-2xl border-4 flex items-center justify-center " + (isSingle ? 'bg-orange-500 border-white text-white' : 'bg-slate-100 border-white text-slate-400')}><Icon name="repeat-1" className="w-5 h-5"/></button>
-                <button onClick={() => setIsLoop(!isLoop)} className={"w-12 h-12 rounded-2xl border-4 flex items-center justify-center " + (isLoop ? 'bg-[#7FC241] border-white text-white' : 'bg-slate-100 border-white text-slate-400')}><Icon name="infinity" className="w-5 h-5"/></button>
-                <button onClick={() => handleNext(false)} className="w-12 h-12 rounded-full bg-[#E53030] text-white flex items-center justify-center border-2 border-white shadow-sm"><Icon name="skip-forward" className="w-5 h-5"/></button>
+            <div className="max-w-md mx-auto flex justify-between items-center gap-2 bg-white/90 p-4 rounded-[2.5rem] border-4 border-white shadow-2xl backdrop-blur-sm">
+                <button onClick={handlePrev} className="w-12 h-12 rounded-full bg-[#A2D2FF] text-white flex items-center justify-center border-2 border-white shadow-sm transition-all active:scale-90"><Icon name="skip-back" className="w-6 h-6"/></button>
+                <button onClick={() => setIsShuffle(!isShuffle)} className={"w-12 h-12 rounded-2xl border-4 transition-all flex items-center justify-center " + (isShuffle ? 'bg-[#F9E05E] border-white text-[#D97706] shadow-sm' : 'bg-slate-100 border-white text-slate-400')}><Icon name="shuffle" className="w-6 h-6"/></button>
+                <button onClick={() => { setIsSingle(!isSingle); if(!isSingle) setIsLoop(false); }} className={"w-12 h-12 rounded-2xl border-4 transition-all flex items-center justify-center " + (isSingle ? 'bg-orange-500 border-white text-white shadow-sm' : 'bg-slate-100 border-white text-slate-400')}><Icon name="repeat-1" className="w-6 h-6"/></button>
+                <button onClick={() => { setIsLoop(!isLoop); if(!isLoop) setIsSingle(false); }} className={"w-12 h-12 rounded-2xl border-4 transition-all flex items-center justify-center " + (isLoop ? 'bg-[#7FC241] border-white text-white shadow-sm' : 'bg-slate-100 border-white text-slate-400')}><Icon name="infinity" className="w-6 h-6"/></button>
+                <button onClick={() => handleNext(false)} className="w-12 h-12 rounded-full bg-[#E53030] text-white flex items-center justify-center border-2 border-white shadow-sm transition-all active:scale-90"><Icon name="skip-forward" className="w-6 h-6"/></button>
             </div>
           </div>
         </div>
